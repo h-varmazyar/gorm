@@ -26,7 +26,9 @@ type DatabaseConfig struct {
 	SSLMode  bool
 }
 
-type DB gorm.DB
+type DB struct {
+	gorm.DB
+}
 
 type DbType string
 
@@ -66,7 +68,8 @@ func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *DB) {
 		db, err = gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{})
 	}
 
-	return migrate(models), (*DB)(db)
+	//return migrate(models), (*DB)(db)
+	return migrate(models), &DB{DB:*db}
 }
 
 func migrate(models ...interface{}) error {
