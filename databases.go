@@ -11,8 +11,9 @@ import (
 	"strings"
 )
 
-var db *gorm.DB
 var err error
+var db  *gorm.DB
+
 
 type DatabaseConfig struct {
 	Type     DbType
@@ -25,6 +26,8 @@ type DatabaseConfig struct {
 	SSLMode  bool
 }
 
+type DB gorm.DB
+
 type DbType string
 
 const (
@@ -33,7 +36,7 @@ const (
 	PostgreSQL DbType = "postgre"
 )
 
-func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *gorm.DB) {
+func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *DB) {
 	switch conf.Type {
 	case MYSQL:
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", conf.Username, conf.Password, conf.Host, conf.Port, conf.Name)
@@ -63,7 +66,7 @@ func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *gorm.DB) 
 		db, err = gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{})
 	}
 
-	return migrate(models), db
+	return migrate(models), (*DB)(db)
 }
 
 func migrate(models ...interface{}) error {
