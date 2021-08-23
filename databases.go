@@ -7,7 +7,6 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"reflect"
 	"strings"
 )
 
@@ -67,22 +66,16 @@ func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *DB) {
 	case SQLITE:
 		db, err = gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{})
 	}
-
-	//return migrate(models), (*DB)(db)
 	return migrate(models), &DB{DB:*db}
 }
 
 func migrate(models ...interface{}) error {
 	for _, intArr := range models {
-		//fmt.Println("type is:", )
-		fmt.Println(reflect.TypeOf(intArr))
 		for _, model := range intArr.([]interface{}) {
 			if err := db.AutoMigrate(model); err != nil {
 				return err
 			}
 		}
-
 	}
-
 	return nil
 }
