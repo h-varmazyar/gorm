@@ -12,8 +12,7 @@ import (
 )
 
 var err error
-var db  *gorm.DB
-
+var db *gorm.DB
 
 type DatabaseConfig struct {
 	Type     DbType
@@ -49,10 +48,14 @@ func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *DB) {
 				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", conf.Username, conf.Password, conf.Host, conf.Port, "")
 				db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 				if err == nil {
-					err=db.Exec(fmt.Sprintf("create database %s;", conf.Name)).Error
+					db.Raw("create database ?;", conf.Name)
+					return conf.Initialize(models)
+				} else {
+					return err, nil
 				}
+			} else {
+				return err, nil
 			}
-			return err, nil
 		}
 	case PostgreSQL:
 		ssl := "disable"
@@ -69,7 +72,7 @@ func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *DB) {
 	}
 
 	//return migrate(models), (*DB)(db)
-	return migrate(models), &DB{DB:*db}
+	return migrate(models), &DB{DB: *db}
 }
 
 func migrate(models ...interface{}) error {
