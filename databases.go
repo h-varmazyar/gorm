@@ -10,9 +10,6 @@ import (
 	"strings"
 )
 
-var err error
-var db  *gorm.DB
-
 type DatabaseConfig struct {
 	Type     DbType
 	Username string
@@ -37,6 +34,8 @@ const (
 )
 
 func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *DB) {
+	var db *gorm.DB
+	var err error
 	switch conf.Type {
 	case MYSQL:
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", conf.Username, conf.Password, conf.Host, conf.Port, conf.Name)
@@ -44,11 +43,11 @@ func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *DB) {
 		if err != nil {
 			if strings.Contains(err.Error(), "Unknown database") {
 				log.Info("creating database ", conf.Name)
-				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", conf.Username, conf.Password, conf.Host, conf.Port, "")
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/?charset=utf8mb4&parseTime=True&loc=Local", conf.Username, conf.Password, conf.Host, conf.Port)
 				db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 				if err == nil {
-					db.Raw("create database ?;", conf.Name)
-					return conf.Initialize(models)
+					db.Exec(fmt.Sprintf("CREATE DATABASE %s;", conf.Name))
+					db.Exec(fmt.Sprintf("USE %s;", conf.Name))
 				} else {
 					return err, nil
 				}
@@ -70,11 +69,10 @@ func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *DB) {
 		db, err = gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{})
 	}
 
-	//return migrate(models), (*DB)(db)
-	return migrate(models), &DB{DB: *db}
+	return migrate(db, models), &DB{DB: *db}
 }
 
-func migrate(models ...interface{}) error {
+func migrate(db *gorm.DB, models ...interface{}) error {
 	for _, intArr := range models {
 		for _, model := range intArr.([]interface{}) {
 			if err := db.AutoMigrate(model); err != nil {
