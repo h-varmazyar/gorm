@@ -7,12 +7,11 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"reflect"
 	"strings"
 )
 
 var err error
-var db *gorm.DB
+var db  *gorm.DB
 
 type DatabaseConfig struct {
 	Type     DbType
@@ -77,15 +76,11 @@ func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *DB) {
 
 func migrate(models ...interface{}) error {
 	for _, intArr := range models {
-		//fmt.Println("type is:", )
-		fmt.Println(reflect.TypeOf(intArr))
 		for _, model := range intArr.([]interface{}) {
 			if err := db.AutoMigrate(model); err != nil {
 				return err
 			}
 		}
-
 	}
-
 	return nil
 }
