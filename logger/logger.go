@@ -1,12 +1,12 @@
 package logger
 
-import "gorm.io/gorm/logger"
+import (
+	"gorm.io/gorm/logger"
+)
 
 type Logger logger.Interface
-type Config logger.Config
 type Writer logger.Writer
-type Loglevel logger.LogLevel
-
+type Loglevel int
 
 const (
 	Silent Loglevel = iota + 1

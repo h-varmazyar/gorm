@@ -2,27 +2,33 @@ package gorm
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
+	myLogger "github.com/mrNobody95/gorm/logger"
+	logrus "github.com/sirupsen/logrus"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	myLogger "github.com/mrNobody95/gorm/logger"
+	"log"
+	"os"
 	"strings"
+	"time"
 )
 
-
 type DatabaseConfig struct {
-	Type     DbType
-	Username string
-	Password string
-	CharSet  string
-	Name     string
-	Host     string
-	Port     int
-	SSLMode  bool
-	Logger   myLogger.Logger
+	Type         DbType
+	Username     string
+	Password     string
+	CharSet      string
+	Name         string
+	Host         string
+	Port         int
+	SSLMode      bool
+	LogLevel  myLogger.Loglevel
+	LogWriter    myLogger.Writer
+	LogSlowThreshold time.Duration
+	IgnoreRecordNotFoundError bool
+	ColorfulLog bool
 }
 
 type DB struct {
@@ -40,20 +46,36 @@ const (
 func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *DB) {
 	var db *gorm.DB
 	var err error
-	if conf.Logger == nil {
-		conf.Logger=logger.Default
+
+	if conf.LogWriter == nil {
+		conf.LogWriter = log.New(os.Stdout, "\r\n", log.LstdFlags)
 	}
+	if conf.LogSlowThreshold == 0 {
+		conf.LogSlowThreshold=time.Second
+	}
+	newLogger := logger.New(
+		conf.LogWriter,
+		logger.Config{
+			SlowThreshold:             conf.LogSlowThreshold,
+			LogLevel:                  logger.LogLevel(conf.LogLevel),
+			IgnoreRecordNotFoundError: conf.IgnoreRecordNotFoundError,
+			Colorful:                  conf.ColorfulLog,
+		},
+	)
+
 	switch conf.Type {
 	case MYSQL:
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", conf.Username, conf.Password, conf.Host, conf.Port, conf.Name)
 		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
-			Logger: conf.Logger,
+			Logger: newLogger,
 		})
 		if err != nil {
 			if strings.Contains(err.Error(), "Unknown database") {
-				log.Info("creating database ", conf.Name)
+				logrus.Info("creating database ", conf.Name)
 				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/?charset=utf8mb4&parseTime=True&loc=Local", conf.Username, conf.Password, conf.Host, conf.Port)
-				db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+				db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+					Logger: newLogger,
+				})
 				if err == nil {
 					db.Exec(fmt.Sprintf("CREATE DATABASE %s;", conf.Name))
 					db.Exec(fmt.Sprintf("USE %s;", conf.Name))
@@ -70,12 +92,16 @@ func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *DB) {
 			ssl = "enable"
 		}
 		dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s TimeZone=UTC", conf.Host, conf.Username, conf.Password, conf.Name, conf.Port, ssl)
-		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+			Logger: newLogger,
+		})
 		if err != nil {
 			return err, nil
 		}
 	case SQLITE:
-		db, err = gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{})
+		db, err = gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{
+			Logger: newLogger,
+		})
 	}
 
 	return migrate(db, models), &DB{DB: *db}
