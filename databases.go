@@ -7,11 +7,14 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+	myLogger "github.com/mrNobody95/gorm/logger"
 	"strings"
 )
 
 var err error
-var db  *gorm.DB
+var db *gorm.DB
+
 
 
 type DatabaseConfig struct {
@@ -23,6 +26,7 @@ type DatabaseConfig struct {
 	Host     string
 	Port     int
 	SSLMode  bool
+	Logger   myLogger.Logger
 }
 
 type DB struct {
@@ -38,17 +42,22 @@ const (
 )
 
 func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *DB) {
+	if conf.Logger == nil {
+		conf.Logger=logger.Default
+	}
 	switch conf.Type {
 	case MYSQL:
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", conf.Username, conf.Password, conf.Host, conf.Port, conf.Name)
-		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+			Logger: conf.Logger,
+		})
 		if err != nil {
 			if strings.Contains(err.Error(), "Unknown database") {
 				log.Info("creating database ", conf.Name)
 				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", conf.Username, conf.Password, conf.Host, conf.Port, "")
 				db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 				if err == nil {
-					err=db.Exec(fmt.Sprintf("create database %s;", conf.Name)).Error
+					err = db.Exec(fmt.Sprintf("create database %s;", conf.Name)).Error
 				}
 			}
 			return err, nil
@@ -66,7 +75,7 @@ func (conf *DatabaseConfig) Initialize(models ...interface{}) (error, *DB) {
 	case SQLITE:
 		db, err = gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{})
 	}
-	return migrate(models), &DB{DB:*db}
+	return migrate(models), &DB{DB: *db}
 }
 
 func migrate(models ...interface{}) error {
